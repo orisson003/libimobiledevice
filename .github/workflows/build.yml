@@ -63,6 +63,7 @@ jobs:
                                       -name "inetcat.exe" -o \
                                       -name "iproxy.exe" -o \
                                       -name "libcurl*.dll" -o \
+                                      -name "libtatsu*.dll" -o \
                                       -name "libxml2*.dll" -o \
                                       -name "libzip*.dll" -o \
                                       -name "zlib*.dll" -o \
