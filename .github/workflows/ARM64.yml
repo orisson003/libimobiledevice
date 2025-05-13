@@ -13,7 +13,7 @@ jobs:
       fail-fast: false
       matrix:
         include: [
-          { msystem: mingw64, arch: aarch64 }
+          { msystem: mingw64, arch: x86_64 }
         ]
     steps:
     - uses: msys2/setup-msys2@v2
@@ -45,7 +45,7 @@ jobs:
             echo "Building $repo..."
             git clone --depth=1 --recursive "https://github.com/libimobiledevice/$repo"
             pushd "$repo" > /dev/null
-            ./autogen.sh CC=gcc CXX=g++ --enable-debug --without-cython
+            CFLAGS="-target aarch64-w64-mingw32" LDFLAGS="-target aarch64-w64-mingw32" ./autogen.sh CC=gcc CXX=g++ --enable-debug --without-cython
             make -j install
             popd > /dev/null
         done
@@ -82,11 +82,11 @@ jobs:
                                       -name "libcrypto*.dll" -o \
                                       -name "libssl*.dll" \) \
                                       -exec cp -v {} rel \;
-        tar -C rel -cJvf libimobile-suite-latest_${{ matrix.arch }}-${{ matrix.msystem }}.tar.xz .
+        tar -C rel -cJvf libimobile-suite-latest_arm64-${{ matrix.msystem }}.tar.xz .
 
     - name: publish release
       env:
         github_token: ${{secrets.GITHUB_TOKEN}}
       run: |
         TAG="${GITHUB_REF##*/}-${GITHUB_SHA:0:7}"
-        gh release create "$TAG" --title "Release" libimobile-suite-latest_${{ matrix.arch }}-${{ matrix.msystem }}.tar.xz
+        gh release create "$TAG" --title "Release" libimobile-suite-latest_arm64-${{ matrix.msystem }}.tar.xz
