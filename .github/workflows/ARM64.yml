@@ -1,92 +1,86 @@
-name: ARM64 build
+name: Build for Windows ARM64
 
 on:
   workflow_dispatch:
 
 jobs:
-  build-windows:
-    runs-on: windows-2019
+  build-windows-arm64:
+    runs-on: windows-2022
     defaults:
       run:
         shell: msys2 {0}
-    strategy:
-      fail-fast: false
-      matrix:
-        include: [
-          { msystem: mingw64, arch: x86_64 }
-        ]
     steps:
-    - uses: msys2/setup-msys2@v2
-      with:
-        msystem: ${{ matrix.msystem }}
-        release: false
-        update: false
-        install: >-
-          base-devel
-          git
-          mingw-w64-${{ matrix.arch }}-gcc
-          make
-          libtool
-          autoconf
-          automake-wrapper
-          mingw-w64-${{ matrix.arch }}-libzip
-          mingw-w64-${{ matrix.arch }}-github-cli
+      - uses: msys2/setup-msys2@v2
+        with:
+          msystem: clangarm64
+          update: true
+          install: >-
+            base-devel
+            git
+            mingw-w64-clang-aarch64-clang
+            mingw-w64-clang-aarch64-make
+            mingw-w64-clang-aarch64-libtool
+            mingw-w64-clang-aarch64-autoconf
+            mingw-w64-clang-aarch64-automake
+            mingw-w64-clang-aarch64-libzip
+            mingw-w64-clang-aarch64-github-cli
 
-    - uses: actions/checkout@v4
-    - name: prepare environment
-      run: |
-        echo "target_triplet=`gcc -dumpmachine`" >> $GITHUB_ENV
-        git config --global core.autocrlf false
+      - uses: actions/checkout@v4
 
-    - name: build projects
-      run: |
-        repos=("libplist" "libimobiledevice-glue" "libusbmuxd" "libtatsu" "libimobiledevice" "libideviceactivation" "ideviceinstaller" "libirecovery" "idevicerestore")
-        for repo in "${repos[@]}"; do
-            echo "Building $repo..."
-            git clone --depth=1 --recursive "https://github.com/libimobiledevice/$repo"
-            pushd "$repo" > /dev/null
-            CFLAGS="-target aarch64-w64-mingw32" LDFLAGS="-target aarch64-w64-mingw32" ./autogen.sh CC=gcc CXX=g++ --enable-debug --without-cython
-            make -j install
-            popd > /dev/null
-        done
+      - name: Prepare Environment
+        run: |
+          echo "target_triplet=$(clang -dumpmachine)" >> $GITHUB_ENV
+          git config --global core.autocrlf false
 
-    - name: prepare release
-      run: |
-        mkdir -p rel
-        find /mingw64/bin/ -type f \( -name "*idevice*" -o \
-                                      -name "*irecovery*" -o \
-                                      -name "libimobiledevice*" -o \
-                                      -name "libplist*" -o \
-                                      -name "plistutil.exe" -o \
-                                      -name "libusbmuxd*" -o \
-                                      -name "inetcat.exe" -o \
-                                      -name "iproxy.exe" -o \
-                                      -name "libcurl*.dll" -o \
-                                      -name "libtatsu*.dll" -o \
-                                      -name "libxml2*.dll" -o \
-                                      -name "libzip*.dll" -o \
-                                      -name "zlib*.dll" -o \
-                                      -name "libreadline*.dll" -o \
-                                      -name "libbrotli*.dll" -o \
-                                      -name "libiconv*.dll" -o \
-                                      -name "libunistring*.dll" -o \
-                                      -name "libssh*.dll" -o \
-                                      -name "libintl*.dll" -o \
-                                      -name "libidn*.dll" -o \
-                                      -name "libnghttp*.dll" -o \
-                                      -name "libpsl*.dll" -o \
-                                      -name "libbz2*.dll" -o \
-                                      -name "liblzma*.dll" -o \
-                                      -name "libzstd*.dll" -o \
-                                      -name "libtermcap*.dll" -o \
-                                      -name "libcrypto*.dll" -o \
-                                      -name "libssl*.dll" \) \
-                                      -exec cp -v {} rel \;
-        tar -C rel -cJvf libimobile-suite-latest_arm64-${{ matrix.msystem }}.tar.xz .
+      - name: Build Projects
+        run: |
+          repos=("libplist" "libimobiledevice-glue" "libusbmuxd" "libtatsu" "libimobiledevice" "libideviceactivation" "ideviceinstaller" "libirecovery" "idevicerestore")
+          for repo in "${repos[@]}"; do
+              echo "Building $repo..."
+              git clone --depth=1 --recursive "https://github.com/libimobiledevice/$repo"
+              pushd "$repo" > /dev/null
+              ./autogen.sh CC=clang CXX=clang++ --enable-debug --without-cython
+              make -j install
+              popd > /dev/null
+          done
 
-    - name: publish release
-      env:
-        github_token: ${{secrets.GITHUB_TOKEN}}
-      run: |
-        TAG="${GITHUB_REF##*/}-${GITHUB_SHA:0:7}"
-        gh release create "$TAG" --title "Release" libimobile-suite-latest_arm64-${{ matrix.msystem }}.tar.xz
+      - name: Prepare Release
+        run: |
+          mkdir -p rel
+          find /clangarm64/bin/ -type f \( -name "*idevice*" -o \
+                                        -name "*irecovery*" -o \
+                                        -name "libimobiledevice*" -o \
+                                        -name "libplist*" -o \
+                                        -name "plistutil.exe" -o \
+                                        -name "libusbmuxd*" -o \
+                                        -name "inetcat.exe" -o \
+                                        -name "iproxy.exe" -o \
+                                        -name "libcurl*.dll" -o \
+                                        -name "libtatsu*.dll" -o \
+                                        -name "libxml2*.dll" -o \
+                                        -name "libzip*.dll" -o \
+                                        -name "zlib*.dll" -o \
+                                        -name "libreadline*.dll" -o \
+                                        -name "libbrotli*.dll" -o \
+                                        -name "libiconv*.dll" -o \
+                                        -name "libunistring*.dll" -o \
+                                        -name "libssh*.dll" -o \
+                                        -name "libintl*.dll" -o \
+                                        -name "libidn*.dll" -o \
+                                        -name "libnghttp*.dll" -o \
+                                        -name "libpsl*.dll" -o \
+                                        -name "libbz2*.dll" -o \
+                                        -name "liblzma*.dll" -o \
+                                        -name "libzstd*.dll" -o \
+                                        -name "libtermcap*.dll" -o \
+                                        -name "libcrypto*.dll" -o \
+                                        -name "libssl*.dll" \) \
+                                        -exec cp -v {} rel \;
+          tar -C rel -cJvf libimobile-suite-latest_arm64-clangarm64.tar.xz .
+
+      - name: Publish Release
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          TAG="release-${GITHUB_SHA:0:7}"
+          gh release create "$TAG" --title "Release" libimobile-suite-latest_arm64-clangarm64.tar.xz
