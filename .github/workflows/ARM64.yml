@@ -5,66 +5,82 @@ on:
 
 jobs:
   build-windows-arm64:
-    runs-on: windows-latest
+    # Use native Windows ARM64 runner
+    runs-on: windows-11-arm64
     defaults:
       run:
-        shell: cmd
+        shell: msys2 {0}
+    
     steps:
+    - uses: msys2/setup-msys2@v2
+      with:
+        msystem: MINGW64
+        update: true
+        install: >-
+          base-devel
+          git
+          mingw-w64-aarch64-gcc
+          make
+          libtool
+          autoconf
+          automake-wrapper
+          mingw-w64-aarch64-libzip
+          mingw-w64-aarch64-github-cli
+          
     - uses: actions/checkout@v4
-    
-    - name: Setup Windows on ARM MSYS2
-      run: |
-        curl -L https://github.com/Windows-on-ARM-Experiments/msys2-woarm64-build/releases/latest/download/msys2-woarm64.exe -o msys2-woarm64.exe
-        msys2-woarm64.exe update
-    
-    - name: Install dependencies
-      run: |
-        msys2-woarm64.exe -c "pacman -Sy --noconfirm base-devel git make libtool autoconf automake-wrapper mingw-w64-aarch64-gcc mingw-w64-aarch64-libzip mingw-w64-aarch64-github-cli"
     
     - name: Prepare environment
       run: |
-        msys2-woarm64.exe -c "git config --global core.autocrlf false"
+        git config --global core.autocrlf false
         
     - name: Build projects
       run: |
-        msys2-woarm64.exe -c "repos=(\"libplist\" \"libimobiledevice-glue\" \"libusbmuxd\" \"libtatsu\" \"libimobiledevice\" \"libideviceactivation\" \"ideviceinstaller\" \"libirecovery\" \"idevicerestore\"); for repo in \"\${repos[@]}\"; do echo \"Building $repo...\"; git clone --depth=1 --recursive \"https://github.com/libimobiledevice/$repo\"; pushd \"$repo\" > /dev/null; ./autogen.sh CC=aarch64-w64-mingw32-gcc CXX=aarch64-w64-mingw32-g++ --host=aarch64-w64-mingw32 --enable-debug --without-cython; make -j install; popd > /dev/null; done"
+        repos=("libplist" "libimobiledevice-glue" "libusbmuxd" "libtatsu" "libimobiledevice" "libideviceactivation" "ideviceinstaller" "libirecovery" "idevicerestore")
+        for repo in "${repos[@]}"; do
+            echo "Building $repo..."
+            git clone --depth=1 --recursive "https://github.com/libimobiledevice/$repo"
+            pushd "$repo" > /dev/null
+            ./autogen.sh --enable-debug --without-cython
+            make -j install
+            popd > /dev/null
+        done
     
     - name: Prepare release
       run: |
-        mkdir rel
-        msys2-woarm64.exe -c "find /mingw64/bin/ -type f \( -name \"*idevice*\" -o \
-                                      -name \"*irecovery*\" -o \
-                                      -name \"libimobiledevice*\" -o \
-                                      -name \"libplist*\" -o \
-                                      -name \"plistutil.exe\" -o \
-                                      -name \"libusbmuxd*\" -o \
-                                      -name \"inetcat.exe\" -o \
-                                      -name \"iproxy.exe\" -o \
-                                      -name \"libcurl*.dll\" -o \
-                                      -name \"libtatsu*.dll\" -o \
-                                      -name \"libxml2*.dll\" -o \
-                                      -name \"libzip*.dll\" -o \
-                                      -name \"zlib*.dll\" -o \
-                                      -name \"libreadline*.dll\" -o \
-                                      -name \"libbrotli*.dll\" -o \
-                                      -name \"libiconv*.dll\" -o \
-                                      -name \"libunistring*.dll\" -o \
-                                      -name \"libssh*.dll\" -o \
-                                      -name \"libintl*.dll\" -o \
-                                      -name \"libidn*.dll\" -o \
-                                      -name \"libnghttp*.dll\" -o \
-                                      -name \"libpsl*.dll\" -o \
-                                      -name \"libbz2*.dll\" -o \
-                                      -name \"liblzma*.dll\" -o \
-                                      -name \"libzstd*.dll\" -o \
-                                      -name \"libtermcap*.dll\" -o \
-                                      -name \"libcrypto*.dll\" -o \
-                                      -name \"libssl*.dll\" \) \
-                                      -exec cp -v {} /github/workspace/rel \;"
-        msys2-woarm64.exe -c "cd /github/workspace && tar -C rel -cJvf libimobile-suite-latest_aarch64-mingw64.tar.xz ."
+        mkdir -p rel
+        find /mingw64/bin/ -type f \( -name "*idevice*" -o \
+                                      -name "*irecovery*" -o \
+                                      -name "libimobiledevice*" -o \
+                                      -name "libplist*" -o \
+                                      -name "plistutil.exe" -o \
+                                      -name "libusbmuxd*" -o \
+                                      -name "inetcat.exe" -o \
+                                      -name "iproxy.exe" -o \
+                                      -name "libcurl*.dll" -o \
+                                      -name "libtatsu*.dll" -o \
+                                      -name "libxml2*.dll" -o \
+                                      -name "libzip*.dll" -o \
+                                      -name "zlib*.dll" -o \
+                                      -name "libreadline*.dll" -o \
+                                      -name "libbrotli*.dll" -o \
+                                      -name "libiconv*.dll" -o \
+                                      -name "libunistring*.dll" -o \
+                                      -name "libssh*.dll" -o \
+                                      -name "libintl*.dll" -o \
+                                      -name "libidn*.dll" -o \
+                                      -name "libnghttp*.dll" -o \
+                                      -name "libpsl*.dll" -o \
+                                      -name "libbz2*.dll" -o \
+                                      -name "liblzma*.dll" -o \
+                                      -name "libzstd*.dll" -o \
+                                      -name "libtermcap*.dll" -o \
+                                      -name "libcrypto*.dll" -o \
+                                      -name "libssl*.dll" \) \
+                                      -exec cp -v {} rel \;
+        tar -C rel -cJvf libimobile-suite-latest_aarch64-mingw64.tar.xz .
     
     - name: Publish release
       env:
         GITHUB_TOKEN: ${{secrets.GITHUB_TOKEN}}
       run: |
-        msys2-woarm64.exe -c "cd /github/workspace && gh release create \"${GITHUB_REF##*/}-${GITHUB_SHA:0:7}\" --title \"libimobiledevice ARM64 Release\" libimobile-suite-latest_aarch64-mingw64.tar.xz"
+        gh release create "${GITHUB_REF##*/}-${GITHUB_SHA:0:7}" --title "libimobiledevice ARM64 Release" libimobile-suite-latest_aarch64-mingw64.tar.xz
